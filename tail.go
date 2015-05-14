@@ -5,16 +5,17 @@ package tail
 import (
 	"bufio"
 	"fmt"
-	"github.com/ActiveState/tail/ratelimiter"
-	"github.com/ActiveState/tail/util"
-	"github.com/ActiveState/tail/watch"
-	"gopkg.in/tomb.v1"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/mirtchovski/tail/ratelimiter"
+	"github.com/mirtchovski/tail/util"
+	"github.com/mirtchovski/tail/watch"
+	"gopkg.in/tomb.v1"
 )
 
 var (
@@ -104,7 +105,7 @@ func TailFile(filename string, config Config) (*Tail, error) {
 
 	if t.MustExist {
 		var err error
-		t.file, err = OpenFile(t.Filename)
+		t.file, err = os.Open(t.Filename)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +150,7 @@ func (tail *Tail) reopen() error {
 	}
 	for {
 		var err error
-		tail.file, err = OpenFile(tail.Filename)
+		tail.file, err = os.Open(tail.Filename)
 		if err != nil {
 			if os.IsNotExist(err) {
 				tail.Logger.Printf("Waiting for %s to appear...", tail.Filename)
@@ -211,10 +212,15 @@ func (tail *Tail) tailFileSync() {
 
 	// Read line by line.
 	for {
-		line, err := tail.readLine()
+		// grab the position in case we need to back up in the event of a half-line
+		offset, err := tail.Tell()
+		if err != nil {
+			tail.Kill(err)
+			return
+		}
 
-		// Process `line` even if err is EOF.
-		if err == nil || (err == io.EOF && line != "") {
+		line, err := tail.readLine()
+		if err == nil {
 			cooloff := !tail.sendLine(line)
 			if cooloff {
 				// Wait a second before seeking till the end of
@@ -235,9 +241,24 @@ func (tail *Tail) tailFileSync() {
 				}
 			}
 		} else if err == io.EOF {
+			// Process `line` even if err is EOF.
 			if !tail.Follow {
+				if line != "" {
+					tail.sendLine(line)
+				}
 				return
 			}
+
+			if line != "" {
+				// this has the potential to never return the last line if
+				// it's not followed by a newline; seems a fair trade here
+				err := tail.seekTo(SeekInfo{Offset: offset, Whence: 0})
+				if err != nil {
+					tail.Kill(err)
+					return
+				}
+			}
+
 			// When EOF is reached, wait for more data to become
 			// available. Wait strategy is based on the `tail.watcher`
 			// implementation (inotify or polling).
@@ -317,7 +338,11 @@ func (tail *Tail) openReader() {
 }
 
 func (tail *Tail) seekEnd() error {
-	_, err := tail.file.Seek(0, 2)
+	return tail.seekTo(SeekInfo{Offset: 0, Whence: 2})
+}
+
+func (tail *Tail) seekTo(pos SeekInfo) error {
+	_, err := tail.file.Seek(pos.Offset, pos.Whence)
 	if err != nil {
 		return fmt.Errorf("Seek error on %s: %s", tail.Filename, err)
 	}

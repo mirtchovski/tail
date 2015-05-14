@@ -3,9 +3,10 @@
 package watch
 
 import (
-	"github.com/howeyc/fsnotify"
 	"log"
 	"sync"
+
+	"github.com/howeyc/fsnotify"
 )
 
 type InotifyTracker struct {

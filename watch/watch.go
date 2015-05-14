@@ -3,8 +3,9 @@
 package watch
 
 import (
-	"gopkg.in/tomb.v1"
 	"os"
+
+	"gopkg.in/tomb.v1"
 )
 
 // FileWatcher monitors file-level events.

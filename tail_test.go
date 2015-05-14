@@ -6,14 +6,15 @@
 package tail
 
 import (
-	"./watch"
 	_ "fmt"
-	"github.com/ActiveState/tail/ratelimiter"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"./watch"
+	"github.com/mirtchovski/tail/ratelimiter"
 )
 
 func init() {
@@ -57,7 +58,7 @@ func TestStop(t *testing.T) {
 func TestMaxLineSize(_t *testing.T) {
 	t := NewTailTest("maxlinesize", _t)
 	t.CreateFile("test.txt", "hello\nworld\nfin\nhe")
-	tail := t.StartTail("test.txt", Config{Follow: true, Location: nil, MaxLineSize: 3})
+	tail := t.StartTail("test.txt", Config{Follow: false, Location: nil, MaxLineSize: 3})
 	go t.VerifyTailOutput(tail, []string{"hel", "lo", "wor", "ld", "fin", "he"})
 
 	// Delete after a reasonable delay, to give tail sufficient time

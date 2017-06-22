@@ -20,5 +20,5 @@ designed to work with log rotation tools.
 
 ## Installing
 
-    go get github.com/ActiveState/tail/...
+    go get github.com/mirtchovski/tail/...
 
